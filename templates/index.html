@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CookieBot</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #fdf3e3;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .chat-container {
+      width: 100%;
+      max-width: 620px;
+      height: 92vh;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(120, 72, 20, 0.18);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      background: #8b5a2b;
+      color: #ffffff;
+      padding: 16px 20px;
+    }
+
+    .chat-header h1 { font-size: 20px; }
+    .chat-header p { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+
+    .chat-messages {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #fffaf2;
+    }
+
+    .message {
+      max-width: 80%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 15px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .message.bot {
+      align-self: flex-start;
+      background: #f5e4cc;
+      color: #3b2a1a;
+      border-bottom-left-radius: 4px;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: #8b5a2b;
+      color: #ffffff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.error {
+      align-self: flex-start;
+      background: #fde2e2;
+      color: #a12a2a;
+    }
+
+    .chat-input {
+      display: flex;
+      gap: 10px;
+      padding: 14px;
+      border-top: 1px solid #efe0c8;
+      background: #ffffff;
+    }
+
+    .chat-input input {
+      flex: 1;
+      padding: 12px 14px;
+      border: 1px solid #dcc7a6;
+      border-radius: 10px;
+      font-size: 15px;
+      outline: none;
+    }
+
+    .chat-input input:focus { border-color: #8b5a2b; }
+
+    .chat-input button {
+      padding: 0 22px;
+      background: #8b5a2b;
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .chat-input button:hover { background: #6f4620; }
+    .chat-input button:disabled { background: #b9a48a; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">
+      <h1>🍪 CookieBot</h1>
+      <p>Ask me anything about cookies</p>
+    </div>
+
+    <div class="chat-messages" id="messages">
+      <div class="message bot">Hi! I'm CookieBot. Ask me about cookie recipes, baking tips, types, or history. 🍪</div>
+    </div>
+
+    <div class="chat-input">
+      <input type="text" id="userInput" placeholder="Ask about cookies..." autocomplete="off">
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const messagesBox = document.getElementById("messages");
+    const userInput = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const history = [];
+
+    function addMessage(text, type) {
+      const div = document.createElement("div");
+      div.className = "message " + type;
+      div.textContent = text;
+      messagesBox.appendChild(div);
+      messagesBox.scrollTop = messagesBox.scrollHeight;
+      return div;
+    }
+
+    async function sendMessage() {
+      const message = userInput.value.trim();
+      if (!message) return;
+
+      addMessage(message, "user");
+      userInput.value = "";
+      sendBtn.disabled = true;
+      userInput.disabled = true;
+
+      const typing = addMessage("Typing...", "bot");
+
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message, history })
+        });
+        const data = await response.json();
+        typing.remove();
+
+        if (response.ok) {
+          addMessage(data.reply, "bot");
+          history.push({ role: "user", text: message });
+          history.push({ role: "model", text: data.reply });
+        } else {
+          addMessage(data.error || "Something went wrong.", "error");
+        }
+      } catch (err) {
+        typing.remove();
+        addMessage("Could not reach the server. Please try again.", "error");
+      }
+
+      sendBtn.disabled = false;
+      userInput.disabled = false;
+      userInput.focus();
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+    userInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
+  </script>
+</body>
+</html>
